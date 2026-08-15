@@ -1,0 +1,276 @@
+"++": { 1 + }
+"--": { 1 - }
+
+// Stack
+
+// a b c -- b c a
+"rise": { ->ds swap <-ds swap }
+
+// a b c -- c a b
+"sink": { swap ->ds swap <-ds }
+
+// a b -- a b a
+"over": { swap dup sink }
+
+// Control
+
+"stub": { dsp 0 ->ds }
+"resolve": { dsp !ds }
+"capture": { (push) ->ds }
+
+// Begins inline anonymous function definition
+// 0 is the code pointer for nest
+"inline": { (jmp) stub dsp 0 ->ds } 
+"endinline": { (unnest) swap resolve capture }
+
+"while": { dsp }
+"do": { (jz) stub swap }
+"endwhile": { (jmp) ->ds resolve }
+
+"if": { 1 }
+"then": { (jz) stub swap }
+"else": { (jmp) stub rise resolve swap }
+"elif": { else ++ }
+
+"endif": {
+    [while (dup) do]
+        swap resolve
+        --
+    [endwhile]
+    drop
+}
+
+// Variable stack
+
+"ndrop": {
+    [while (dup 0 >) do]
+        swap drop
+        --
+    [endwhile]
+    drop
+}
+
+"2drop": { 2 ndrop }
+
+"nrise": {
+    dup
+    [while (dup 1 >) do]
+        rise ->ds
+        --
+    [endwhile]
+    drop
+
+    [while (dup 1 >) do]
+        <-ds sink
+        --
+    [endwhile]
+    drop
+}
+
+"nsink": {
+    dup
+    [while (dup 1 >) do]
+        4 nrise ->ds
+        --
+    [endwhile]
+    drop
+
+    [while (dup 1 >) do]
+        <-ds swap
+        --
+    [endwhile]
+    drop
+}
+
+"nover": {
+    dup ++ ->ds
+    nrise dup
+    <-ds nsink
+}
+
+"ndup": {
+    dup
+    [while (dup 0 >) do]
+        ->ds dup ->ds
+        nover <-ds <-ds
+        --
+    [endwhile]
+    2drop
+}
+
+"2dup": { 2 ndup }
+
+// Arithemtic / Logic
+
+"<=": { 2dup < sink = or }
+">=": { 2dup > sink = or }
+
+"pi": { 3.141592653589793238462643383279502884 }
+"2pi": pi 2. f* {[capture]}
+
+// base exp -- base^exp
+"pow": {
+    1 sink
+    [while (dup) do]
+        [if (dup 2 %) then]
+            rise 3 nover * sink
+        [endif]
+
+        swap dup * swap 2 /
+    [endwhile]
+    2drop
+}
+
+// Linked list
+
+"cons": { dsp rise ->ds swap ->ds }
+"head": { @ds }
+"tail": { ++ @ds }
+
+// list n -- list
+"ntail": {
+    [while (dup) do]
+        swap tail swap
+        --
+    [endwhile]
+    drop
+}
+
+"nhead": {
+    [if (dup not) then]
+        2drop 0 unnest
+    [endif]
+
+    swap dup head
+    swap tail rise
+    -- nhead cons
+}
+
+"nth": { ntail head }
+
+"list": {
+    0 swap
+    [while (dup) do]
+        sink cons swap
+        --
+    [endwhile]
+    drop
+}
+
+"range": {
+    0 swap                // 0 n
+    [while (dup 0 >) do]
+        --
+        dup rise cons     // n-1 cons(n-1, 0)
+        swap
+    [endwhile]
+    drop
+}
+
+// acc list fn -- acc
+"foldr": {
+    [if (over not) then (2drop unnest) endif]
+
+    over tail over       // acc list fn list.r fn
+    5 nrise sink foldr   // list fn foldr(acc list.r, fn)
+    rise head rise call  // fn(foldr(acc, list.r, fn), list.h)
+}
+
+// acc list fn -- acc
+"foldl": {
+    [while (over) do]
+        2dup 5 nrise    // list fn list fn acc
+        rise head       // list fn fn acc list.h
+        rise call       // list fn fn(acc, list.h)
+        rise tail rise  // foldl(acc, list.r, fn)
+    [endwhile]
+    2drop
+}
+
+// list fn -- list
+"map": {
+    [if (over not) then (drop unnest) endif]
+
+    over tail over map  // list fn map(list.r, fn)
+    rise head rise      // map(list.r, fn) list.h fn
+    call swap cons      // cons(fn(list.h), map(list.r, fn))
+}
+
+// list pred -- list
+"filter": {
+    [if (over not) then (drop unnest) endif]
+
+    over tail over filter     // list pred filter(list.r, pred)
+    rise head rise over swap  // filtered list.h list.h pred 
+
+    [if (call) then (swap cons) else (drop) endif]
+}
+
+"concat": { swap [inline (swap cons) endinline] foldr }
+"reverse": { 0 swap [inline (swap cons) endinline] foldl }
+"foreach": { 0 sink foldl drop }
+"length": { 0 swap [inline (drop ++) endinline] foldl }
+
+"min": {
+    [if (dup not) then (unnest) endif]
+
+    dup head swap tail
+    [inline]
+        [if (2dup >) then (swap) endif]
+        drop
+    [endinline]
+    foldl
+}
+
+"max": {
+    [if (dup not) then (unnest) endif]
+
+    dup head swap tail
+    [inline]
+        [if (2dup <) then (swap) endif]
+        drop
+    [endinline]
+    foldl
+}
+
+// l1 l2 cmpgt -- merged
+"merge": {
+    [if (3 nover not) then]
+        rise 2drop unnest
+    [elif (over not) then]
+        2drop unnest
+    [endif]
+
+    3 nover head
+    3 nover head
+
+    [if (3 nover call) then (swap) else (rise) endif]
+    dup head swap tail
+    4 nrise 4 nrise merge
+    cons
+}
+
+// list cmpgt -- sorted
+"sort": {
+    [if (over length 1 <=) then (drop unnest) endif]
+
+    swap dup length 2 /    // cmpgt list mid
+    2dup nhead sink ntail  // cmpgt left right
+    3 nover sort           // cmpgt left sort(right)
+    sink over sort         // sort(right) cmpgt sort(left)
+    sink merge
+}
+
+"putcons": { [inline (puti " " puts) endinline] foreach nl }
+
+// Cartesian product
+// l1 l2 -- l1xl2
+"cprod": {
+    dsp swap {                // D1: l1 dsp l2
+        [capture]             // D1: l1 dsp, D2: l1.v l2
+        dsp rise {            // D2: l2 dsp l1.v
+            [capture]         // D2: l2 dsp, D3: l2.v l1.v
+            swap 0 cons cons
+        } map
+    } map
+}
