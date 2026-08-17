@@ -207,6 +207,7 @@
 }
 
 "concat": { swap [inline (swap cons) endinline] foldr }
+"flatmap": { 0 sink map push ["concat":& ->ds] foldl }
 "reverse": { 0 swap [inline (swap cons) endinline] foldl }
 "foreach": { 0 sink foldl drop }
 "length": { 0 swap [inline (drop ++) endinline] foldl }
@@ -272,5 +273,5 @@
             [capture]         // D2: l2 dsp, D3: l2.v l1.v
             swap 0 cons cons
         } map
-    } map
+    } flatmap
 }
