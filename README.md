@@ -220,7 +220,7 @@ Anonymous functions can be defined by first pushing the current data stack point
 
 Programming languages supporting first-class functions typically handle variable capture with closures, where functions implicitly access a data structure containing the encapsulated state. In duster, functions are first-class in the sense that there is no distinction between code and data. Because of this, we can emulate closure-like variable capture by simply compiling entirely new functions at runtime with the desired state embedded within them.
 
-The `capture` subroutine exists for this purpose. It's intended usage is to take a cell from the compile-time parameter stack and compile it into an instruction that pushes that cell onto the runtime parameter stack.
+The `capture` subroutine exists for this purpose. Its intended usage is to take a cell from the compile-time parameter stack and compile it into an instruction that pushes that cell onto the runtime parameter stack.
 
 ```
 5 range dsp {
