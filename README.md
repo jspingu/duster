@@ -127,6 +127,31 @@ The `:` native function associates a string with the current address at the top 
 hello                                // Call the newly defined subroutine
 ```
 
+### FizzBuzz
+
+FizzBuzz implementation to demonstrate loops and conditionals.
+
+```
+"fizzbuzz": {
+    1
+    [while (2dup >=) do]
+        [if (dup 15 % not) then]
+            "FizzBuzz" puts
+        [elif (dup 3 % not) then]
+            "Fizz" puts
+        [elif (dup 5 % not) then]
+            "Buzz" puts
+        [else]
+            dup puti
+        [endif]
+        nl ++
+    [endwhile]
+    2drop
+}
+
+100 fizzbuzz
+```
+
 ### Bootstrapping Language Features
 
 The `jmp` native function is pre-defined for unconditional jumps. It will jump to the address stored in the next cell ahead of it in the data stack. A forever loop could be written with this like so:
@@ -140,7 +165,7 @@ The `jmp` native function is pre-defined for unconditional jumps. It will jump t
 }
 ```
 
-This code is hard to understand. We can bootstrap a do-forever loop construct by defining compiling subroutines that will generate the necessary code for us. The principle is similar to macro assemblers, but instead of a preprocessor, we use duster's own facilities to generate its own code.
+This code is hard to understand. We can bootstrap a do-forever loop construct by defining compiling subroutines that will generate the necessary code for us. The principle is similar to macro assemblers, but instead of a preprocessor, we use duster's metaprogramming facilities to generate its own code.
 
 ```
 "do": { dsp }              // Save the current data stack pointer
@@ -176,3 +201,43 @@ These allow us to write while loops like this:
     drop
 }
 ```
+
+### First-Class Functions
+
+Use `:&` to push the data stack address of a named subroutine onto the parameter stack. These can be passed to higher-order functions like `map` to apply a subroutine to each element of a list.
+
+```
+"double": { 2 * }
+
+5 range "double":& map putcons  // Output: 0 2 4 6 8 
+```
+
+Anonymous functions can be defined by first pushing the current data stack pointer and then entering subroutine compilation. The address of the newly compiled subroutine will be on the parameter stack.
+
+```
+5 range dsp { 2 * } map putcons  // Output: 0 2 4 6 8 
+```
+
+Programming languages supporting first-class functions typically handle variable capture with closures, where functions implicitly access a data structure containing the encapsulated state. In duster, functions are first-class in the sense that there is no distinction between code and data. Because of this, we can emulate closure-like variable capture by simply compiling entirely new functions at runtime with the desired state embedded within them.
+
+The `capture` subroutine exists for this purpose. It's intended usage is to take a cell from the compile-time parameter stack and compile it into an instruction that pushes that cell onto the runtime parameter stack.
+
+```
+5 range dsp {
+    dsp swap {
+        "Captured: " puts [capture] puti nl
+    }
+} map
+
+"call":& foreach
+
+// Output
+// ------------
+// Captured: 0
+// Captured: 1
+// Captured: 2
+// Captured: 3
+// Captured: 4
+```
+
+Of course, compiling the same function multiple times for different states wastes memory, but this serves as another example of how complex behavior can arise through self-modification in a language with a very simple set of rules.
