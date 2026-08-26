@@ -186,12 +186,14 @@ static void push(DT_System *sys) {
 
 static void pushstr(DT_System *sys) {
     char cell[sizeof(DT_Cell)];
-    char *str = (char *)List_GetAddress(sys->data_stack, sys->pc);
+    uint32_t str_base = sys->pc;
 
     while (DT_GetCell(sys, sys->data_stack, sys->pc++, cell)) {
         for (uint32_t i = 0; i < sizeof(DT_Cell); ++i) {
             if (cell[i] == '\0') {
+                char *str = SDL_strdup((char *)List_GetAddress(sys->data_stack, str_base));
                 DT_PushString(sys->param_stack, str);
+                SDL_free(str);
                 return;
             }
         }
@@ -217,7 +219,7 @@ static void compile(DT_System *sys) {
 
 static void compilestr(DT_System *sys) {
     uint32_t defer;
-    char *str = (char *)List_GetAddress(sys->data_stack, sys->pc + 1);
+    uint32_t str_base = sys->pc + 1;
 
     if (!DT_GetCell(sys, sys->data_stack, sys->pc++, &defer))
         return;
@@ -233,9 +235,11 @@ static void compilestr(DT_System *sys) {
                     DT_PushCell(sys->data_stack, &defer);
                 }
 
+                char *str = SDL_strdup((char *)List_GetAddress(sys->data_stack, str_base));
                 uint32_t len = SDL_strlen(str);
                 char *compiled = List_PushSpace(sys->data_stack, len / sizeof(DT_Cell) + 1);
                 SDL_strlcpy(compiled, str, len + 1);
+                SDL_free(str);
                 return;
             }
         }
